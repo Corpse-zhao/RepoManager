@@ -40,8 +40,8 @@ struct UploadView: View {
                     }
                 }
 
-                if let name = draft.fileName, !name.isEmpty {
-                    Section(header: Text("已选择：\(name)")) {
+                if !draft.fileName.isEmpty {
+                    Section(header: Text("已选择：\(draft.fileName)")) {
                         TextField("显示名称", text: $draft.name)
                         TextField("包名 (com.xxx)", text: $draft.package)
                             .textInputAutocapitalization(.never)

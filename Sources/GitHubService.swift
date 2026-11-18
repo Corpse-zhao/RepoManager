@@ -1,6 +1,5 @@
 import Foundation
 import CryptoKit
-import Compression
 
 // MARK: - 错误
 enum RepoError: LocalizedError {
@@ -131,7 +130,7 @@ final class GitHubService {
                 "type": "blob"
             ]
             if let data = change.data {
-                let blobData = try await request("POST", "/git/blobs", [
+                let blobData = try await request("POST", "/git/blobs", body: [
                     "content": data.base64EncodedString(),
                     "encoding": "base64"
                 ])
@@ -148,7 +147,7 @@ final class GitHubService {
         }
 
         // 4) 创建新树
-        let treeData = try await request("POST", "/git/trees", [
+        let treeData = try await request("POST", "/git/trees", body: [
             "base_tree": baseTree,
             "tree": tree
         ])
@@ -158,7 +157,7 @@ final class GitHubService {
         }
 
         // 5) 创建 commit
-        let newCommitData = try await request("POST", "/git/commits", [
+        let newCommitData = try await request("POST", "/git/commits", body: [
             "message": message,
             "tree": newTree,
             "parents": [commitSha]
@@ -169,7 +168,7 @@ final class GitHubService {
         }
 
         // 6) 移动分支指针
-        _ = try await request("PATCH", "/git/refs/heads/\(config.branch)", ["sha": newCommitSha])
+        _ = try await request("PATCH", "/git/refs/heads/\(config.branch)", body: ["sha": newCommitSha])
     }
 
     /// 下载任意 URL（用于贴链接拉 deb）
@@ -193,39 +192,63 @@ enum RepoHash {
         Insecure.MD5.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    /// gzip 压缩（Compression framework）
+    /// gzip 压缩：用 deflate stored（无压缩）块实现，纯 Swift 无系统依赖。
+    /// 索引文件通常只有几 KB，无压缩也足够小，兼容性 100%。
     static func gzip(_ data: Data) -> Data? {
-        let dstSize = 64 * 1024
-        let dst = UnsafeMutablePointer<UInt8>.allocate(capacity: dstSize)
-        defer { dst.deallocate() }
-
-        var stream = compression_stream()
-        let initStatus = compression_stream_init(&stream, COMPRESSION_STREAM_OPERATION_ENCODE, COMPRESSION_ALGORITHM_GZIP)
-        guard initStatus != COMPRESSION_STATUS_ERROR else { return nil }
-        defer { compression_stream_destroy(&stream) }
-
-        var output = Data()
-        let count = data.count
-        let result: Data? = data.withUnsafeBytes { (buf: UnsafeRawBufferPointer) -> Data? in
-            guard let base = buf.baseAddress else { return nil }
-            stream.src_ptr = base.assumingMemoryBound(to: UInt8.self)
-            stream.src_size = count
-            var finalized = false
-            while true {
-                stream.dst_ptr = dst
-                stream.dst_size = dstSize
-                let flags: Int32 = finalized ? Int32(COMPRESSION_STREAM_FINALIZATION) : 0
-                let status = compression_stream_process(&stream, flags)
-                let produced = dstSize - stream.dst_size
-                if produced > 0 { output.append(dst, count: produced) }
-                if status == COMPRESSION_STATUS_END { break }
-                if status == COMPRESSION_STATUS_ERROR { return nil }
-                if stream.src_size == 0 && !finalized {
-                    finalized = true
-                }
+        var out = Data()
+        // gzip header: magic 1f 8b, CM=8(deflate), FLG=0, MTIME=0, XFL=0, OS=255
+        out.append(contentsOf: [0x1f, 0x8b, 0x08, 0x00, 0, 0, 0, 0, 0, 0xff])
+        // deflate stored blocks, 每块最多 65535 字节
+        let bytes = [UInt8](data)
+        var offset = 0
+        if bytes.isEmpty {
+            // 空数据：写一个空的 final stored block
+            out.append(contentsOf: [0x01, 0x00, 0x00, 0xff, 0xff])
+        } else {
+            while offset < bytes.count {
+                let chunk = min(65535, bytes.count - offset)
+                let final: UInt8 = (offset + chunk >= bytes.count) ? 1 : 0
+                let bfinal = final  // BFINAL=1/0, BTYPE=00 (stored) -> 0x01 或 0x00
+                // 按位对齐到字节边界：stored block header 从当前字节边界开始
+                out.append(bfinal)
+                let len = UInt16(chunk)
+                let nlen = UInt16(~chunk & 0xffff)
+                out.append(contentsOf: [UInt8(len & 0xff), UInt8(len >> 8),
+                                        UInt8(nlen & 0xff), UInt8(nlen >> 8)])
+                out.append(contentsOf: bytes[offset..<(offset + chunk)])
+                offset += chunk
             }
-            return output
         }
-        return result
+        // gzip trailer: CRC32 + ISIZE
+        let crc = CRC32.calculate(bytes)
+        let isize = UInt32(bytes.count & 0xffffffff)
+        out.append(contentsOf: [UInt8(crc & 0xff), UInt8((crc >> 8) & 0xff),
+                                UInt8((crc >> 16) & 0xff), UInt8((crc >> 24) & 0xff)])
+        out.append(contentsOf: [UInt8(isize & 0xff), UInt8((isize >> 8) & 0xff),
+                                UInt8((isize >> 16) & 0xff), UInt8((isize >> 24) & 0xff)])
+        return out
+    }
+}
+
+// MARK: - CRC32（gzip 尾校验用）
+enum CRC32 {
+    private static let table: [UInt32] = {
+        var t = [UInt32](repeating: 0, count: 256)
+        for i in 0..<256 {
+            var c = UInt32(i)
+            for _ in 0..<8 {
+                c = (c & 1) != 0 ? (0xEDB88320 ^ (c >> 1)) : (c >> 1)
+            }
+            t[i] = c
+        }
+        return t
+    }()
+
+    static func calculate(_ bytes: [UInt8]) -> UInt32 {
+        var crc: UInt32 = 0xffffffff
+        for b in bytes {
+            crc = table[Int((crc ^ UInt32(b)) & 0xff)] ^ (crc >> 8)
+        }
+        return crc ^ 0xffffffff
     }
 }

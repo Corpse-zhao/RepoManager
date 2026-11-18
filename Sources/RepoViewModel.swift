@@ -152,7 +152,7 @@ final class RepoViewModel: ObservableObject {
             let gzData = RepoHash.gzip(packagesData)
             let release = Self.makeRelease(packages: packagesData, gz: gzData, config: config)
 
-            var changes: [FileChange] = [
+            let changes: [FileChange] = [
                 FileChange(path: entry.filename, data: nil, sha: nil),
                 FileChange(path: "depictions/\(entry.package).json", data: nil, sha: nil),
                 FileChange(path: "Packages", data: packagesData, sha: nil),
