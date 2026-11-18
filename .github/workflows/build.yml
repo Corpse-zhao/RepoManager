@@ -1,0 +1,93 @@
+name: Build RepoManager (deb)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'Sources/**'
+      - 'Assets/**'
+      - 'project.yml'
+      - 'packaging/**'
+      - '.github/workflows/build.yml'
+
+env:
+  TEA_LEAVE: 0
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools (xcodegen, ldid, dpkg)
+        run: |
+          brew install xcodegen ldid dpkg
+          echo "TOOLS INSTALLED"
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate --spec project.yml
+          ls -la RepoManager.xcodeproj
+          echo "PROJECT GENERATED"
+
+      - name: Build app (unsigned, iphoneos)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project RepoManager.xcodeproj \
+            -scheme RepoManager \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            clean build 2>&1 | tee build.log
+          test ${PIPESTATUS[0]} -eq 0
+          echo "BUILD DONE"
+
+      - name: Locate .app
+        id: app
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name 'RepoManager.app' -type d | head -1)
+          if [ -z "$APP" ]; then echo "APP NOT FOUND"; find build/Build/Products -maxdepth 3 -type d; exit 1; fi
+          echo "APP=$APP"
+          echo "path=$APP" >> $GITHUB_OUTPUT
+
+      - name: Fake-sign with ldid (roothide / arm64e)
+        run: |
+          APP="${{ steps.app.outputs.path }}"
+          # 对所有 Mach-O 可执行文件做 ldid 签名（空 entitlements）
+          find "$APP" -type f -perm -u+x -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            if file "$f" | grep -q 'Mach-O'; then ldid -S "$f" || true; fi
+          done
+          ldid -S "$APP/RepoManager" 2>/dev/null || true
+          echo "SIGNED"
+
+      - name: Package roothide deb
+        run: |
+          APP="${{ steps.app.outputs.path }}"
+          STAGE=$(pwd)/stage
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE/DEBIAN" "$STAGE/Applications"
+          cp -R "$APP" "$STAGE/Applications/RepoManager.app"
+          cp packaging/control "$STAGE/DEBIAN/control"
+          # roothide: Architecture 必须是 iphoneos-arm64e，路径相对（无 /var/jb）
+          dpkg-deb -Zxz --build "$STAGE" RepoManager_1.0.0_iphoneos-arm64e.deb
+          ls -lh RepoManager_1.0.0_iphoneos-arm64e.deb
+          echo "DEB BUILT"
+
+      - name: Verify deb
+        run: |
+          dpkg-deb -I RepoManager_1.0.0_iphoneos-arm64e.deb
+          echo "--- contents ---"
+          dpkg-deb -c RepoManager_1.0.0_iphoneos-arm64e.deb | head -20
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RepoManager-deb
+          path: RepoManager_1.0.0_iphoneos-arm64e.deb
+          if-no-files-found: error

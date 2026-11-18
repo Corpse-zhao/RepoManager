@@ -1,0 +1,9 @@
+Package: com.corpsezhao.repomanager
+Name: RepoManager
+Version: 1.0.0
+Architecture: iphoneos-arm64e
+Maintainer: Corpse-zhao
+Author: Corpse-zhao
+Section: Applications
+Depends: firmware (>= 15.0)
+Description: 越狱源管理助手 - 在手机上管理你的 Cydia/Sileo 源：查看、上传、删除插件，自动重建 Packages 索引与 Sileo 图文页。
