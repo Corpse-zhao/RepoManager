@@ -3,9 +3,7 @@ import SwiftUI
 struct SetupView: View {
     @EnvironmentObject var vm: RepoViewModel
     @State private var token = ""
-    @State private var repoInput = "Corpse-zhao/banli"
-    @State private var branch = "main"
-    @State private var showAdvanced = false
+    @State private var repoInput = ""
     @State private var testing = false
 
     /// 解析「owner/repo」或完整 GitHub URL → (owner, repo)
@@ -36,10 +34,10 @@ struct SetupView: View {
                         .autocorrectionDisabled()
                 }
 
-                Section(header: Text("2 · 确认仓库"), footer: Text(
-                    "已默认填好你的源。也可以直接粘贴完整链接，如 https://github.com/Corpse-zhao/banli"
+                Section(header: Text("2 · 填源仓库"), footer: Text(
+                    "填「用户名/仓库名」，或直接粘贴完整链接，如 https://github.com/Corpse-zhao/banli"
                 )) {
-                    TextField("用户名/仓库名", text: $repoInput)
+                    TextField("用户名/仓库名，或粘贴完整链接", text: $repoInput)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     if let p = parsed {
@@ -54,19 +52,11 @@ struct SetupView: View {
                 }
 
                 Section {
-                    DisclosureGroup("高级设置", isExpanded: $showAdvanced) {
-                        TextField("分支（默认 main）", text: $branch)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                    }
-                }
-
-                Section {
                     Button {
                         testing = true
                         Task {
                             let p = parseRepo(repoInput) ?? ("", "")
-                            vm.config = RepoConfig(token: token, owner: p.0, repo: p.1, branch: branch)
+                            vm.config = RepoConfig(token: token, owner: p.0, repo: p.1, branch: "main")
                             let ok = await vm.testConnection()
                             testing = false
                             if !ok { vm.config = RepoConfig() }
