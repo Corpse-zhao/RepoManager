@@ -40,6 +40,12 @@ final class RepoViewModel: ObservableObject {
             let name = try await service.verify()
             status = "已连接 \(name)"
             return true
+        } catch RepoError.http(404, _) {
+            alert("找不到仓库。请确认「源仓库」填的是 GitHub 仓库地址，格式：用户名/仓库名（如 Corpse-zhao/banli），不是 xxx.github.io 网址。也要确认该仓库存在且 Token 有权限访问。")
+            return false
+        } catch RepoError.http(401, _) {
+            alert("Token 无效或已过期，请重新生成一个勾选 repo 权限的 GitHub Token。")
+            return false
         } catch {
             alert("连接失败：\(error.localizedDescription)")
             return false

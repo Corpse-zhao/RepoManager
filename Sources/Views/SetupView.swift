@@ -9,13 +9,23 @@ struct SetupView: View {
     /// 解析「owner/repo」或完整 GitHub URL → (owner, repo)
     private func parseRepo(_ raw: String) -> (String, String)? {
         var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.hasPrefix("https://github.com/") || s.hasPrefix("http://github.com/") {
-            s = s.replacingOccurrences(of: "https://github.com/", with: "")
-                .replacingOccurrences(of: "http://github.com/", with: "")
-        }
+        s = s.replacingOccurrences(of: "https://", with: "")
+            .replacingOccurrences(of: "http://", with: "")
         s = s.replacingOccurrences(of: ".git", with: "")
         s = s.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let parts = s.split(separator: "/").map(String.init)
+        var parts = s.split(separator: "/").map(String.init)
+
+        // 兼容 GitHub Pages 地址：corpse-zhao.github.io/banli → corpse-zhao / banli
+        if let host = parts.first, host.lowercased().hasSuffix(".github.io") {
+            let owner = host.replacingOccurrences(of: ".github.io", with: "",
+                                                  options: .caseInsensitive)
+            guard parts.count >= 2 else { return nil }
+            return (owner, parts[1])
+        }
+        // 兼容 github.com/owner/repo（去掉可能的 github.com 前缀）
+        if parts.first?.lowercased() == "github.com" {
+            parts = Array(parts.dropFirst())
+        }
         guard parts.count >= 2 else { return nil }
         return (parts[0], parts[1])
     }
