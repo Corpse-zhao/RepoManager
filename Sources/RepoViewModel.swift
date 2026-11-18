@@ -41,7 +41,7 @@ final class RepoViewModel: ObservableObject {
             status = "已连接 \(name)"
             return true
         } catch RepoError.http(404, _) {
-            alert("找不到仓库。请确认「源仓库」填的是 GitHub 仓库地址，格式：用户名/仓库名（如 Corpse-zhao/banli），不是 xxx.github.io 网址。也要确认该仓库存在且 Token 有权限访问。")
+            alert("找不到仓库。App 实际解析为「\(config.repoFullName)」。\n\n正确格式：用户名/仓库名，例如 Corpse-zhao/banli。也可粘贴 github.com/用户名/仓库名 或 xxx.github.io/仓库名。注意 Token 和仓库要对应同一个 GitHub 账号。")
             return false
         } catch RepoError.http(401, _) {
             alert("Token 无效或已过期，请重新生成一个勾选 repo 权限的 GitHub Token。")
