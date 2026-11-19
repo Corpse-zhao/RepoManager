@@ -11,8 +11,12 @@ struct SetupView: View {
         var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         s = s.replacingOccurrences(of: "https://", with: "")
             .replacingOccurrences(of: "http://", with: "")
-        s = s.replacingOccurrences(of: ".git", with: "")
         s = s.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        // 只去掉结尾的 .git（git clone 地址），不能全局替换：
+        // 否则 corpse-zhao.github.io 会被误删成 corpse-zhaohub.io，Pages 地址就识别不了
+        if s.lowercased().hasSuffix(".git") {
+            s = String(s.dropLast(4))
+        }
         var parts = s.split(separator: "/").map(String.init)
 
         // 兼容 GitHub Pages 地址：corpse-zhao.github.io/banli → corpse-zhao / banli
