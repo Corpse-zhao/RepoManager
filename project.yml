@@ -34,6 +34,8 @@ targets:
         CFBundleDisplayName: 源管理
         CFBundleName: RepoManager
         CFBundleIdentifier: com.corpsezhao.repomanager
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UIRequiredDeviceCapabilities: [arm64]
         ITSAppUsesNonExemptEncryption: false
