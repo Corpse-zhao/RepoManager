@@ -52,15 +52,20 @@ struct SetupView: View {
                 }
 
                 Section(header: Text("1 · GitHub Token（必填）")) {
-                    SecureField("粘贴 ghp_ 开头的 token", text: $token)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("Token：")
+                            .frame(width: 72, alignment: .leading).fixedSize()
+                            .foregroundColor(.secondary)
+                        SecureField("ghp_ 开头的 token", text: $token)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
                     Text("填什么：GitHub 私人访问令牌，用来读写你的源仓库。\n去哪拿：GitHub 网页 → 头像 → Settings → Developer settings → Personal access tokens → Generate new token (classic) → 只勾 repo → 复制 ghp_ 开头那串。\n只存手机本机，不会上传到别处。")
                         .font(.caption).foregroundColor(.secondary)
                 }
 
                 Section(header: Text("2 · 源仓库（必填）")) {
-                    TextField("例如 Corpse-zhao/banli", text: $repoInput)
+                    LabelledField("源仓库", text: $repoInput, placeholder: "例如 Corpse-zhao/banli")
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     Text("填什么：存放越狱源的 GitHub 仓库（里面有 Packages、debs 文件夹的那个）。\n三种写法任选一种粘贴：")

@@ -16,7 +16,7 @@ env:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-15-intel
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -75,19 +75,19 @@ jobs:
           cp -R "$APP" "$STAGE/Applications/RepoManager.app"
           cp packaging/control "$STAGE/DEBIAN/control"
           # roothide: Architecture 必须是 iphoneos-arm64e，路径相对（无 /var/jb）
-          dpkg-deb -Zxz --build "$STAGE" RepoManager_1.0.3_iphoneos-arm64e.deb
-          ls -lh RepoManager_1.0.3_iphoneos-arm64e.deb
+          dpkg-deb -Zxz --build "$STAGE" RepoManager_1.0.4_iphoneos-arm64e.deb
+          ls -lh RepoManager_1.0.4_iphoneos-arm64e.deb
           echo "DEB BUILT"
 
       - name: Verify deb
         run: |
-          dpkg-deb -I RepoManager_1.0.3_iphoneos-arm64e.deb
+          dpkg-deb -I RepoManager_1.0.4_iphoneos-arm64e.deb
           echo "--- contents ---"
-          dpkg-deb -c RepoManager_1.0.3_iphoneos-arm64e.deb | head -20
+          dpkg-deb -c RepoManager_1.0.4_iphoneos-arm64e.deb | head -20
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: RepoManager-deb
-          path: RepoManager_1.0.3_iphoneos-arm64e.deb
+          path: RepoManager_1.0.4_iphoneos-arm64e.deb
           if-no-files-found: error

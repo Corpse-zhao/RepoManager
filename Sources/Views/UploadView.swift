@@ -28,8 +28,11 @@ struct UploadView: View {
                         handleImport(result)
                     }
 
-                    HStack {
-                        TextField("或粘贴 deb 下载链接 (http...)", text: $urlString)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("链接：")
+                            .frame(width: 44, alignment: .leading).fixedSize()
+                            .foregroundColor(.secondary)
+                        TextField("http...", text: $urlString)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .keyboardType(.URL)
@@ -42,17 +45,17 @@ struct UploadView: View {
 
                 if !draft.fileName.isEmpty {
                     Section(header: Text("已选择：\(draft.fileName)")) {
-                        TextField("显示名称", text: $draft.name)
-                        TextField("包名 (com.xxx)", text: $draft.package)
+                        LabelledField("显示名称", text: $draft.name)
+                        LabelledField("包名", text: $draft.package)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                        TextField("版本", text: $draft.version)
-                        TextField("架构", text: $draft.arch)
+                        LabelledField("版本", text: $draft.version)
+                        LabelledField("架构", text: $draft.arch)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                        TextField("功能描述", text: $draft.desc)
-                        TextField("依赖", text: $draft.depends)
-                        TextField("分类", text: $draft.section)
+                        LabelledField("功能描述", text: $draft.desc)
+                        LabelledField("依赖", text: $draft.depends)
+                        LabelledField("分类", text: $draft.section)
 
                         Button {
                             Task {
@@ -127,5 +130,23 @@ struct UploadView: View {
     private func reset() {
         draft = UploadDraft()
         urlString = ""
+    }
+}
+
+/// 固定标签 + 输入框：标签始终可见，打字也不会消失
+struct LabelledField: View {
+    let label: String
+    @Binding var text: String
+    var placeholder: String = ""
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(label + "：")
+                .frame(width: 72, alignment: .leading)
+                .foregroundColor(.secondary)
+                .fixedSize()
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.plain)
+        }
     }
 }
