@@ -64,30 +64,38 @@ struct IPAView: View {
                             .font(.caption).foregroundColor(.secondary)
                     } else {
                         ForEach(vm.ipaFiles, id: \.self) { name in
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 14) {
                                     Image(systemName: "app.badge")
                                     Text(name).font(.subheadline)
-                                    Spacer()
+                                    Spacer(minLength: 4)
+                                    // 编辑备注：独立的点击热区（plain 样式 + 固定 frame 防相邻按钮误触）
                                     Button {
-                                        noteTarget = name
                                         noteDraft = vm.ipaNotes[name] ?? ""
+                                        noteTarget = name
                                     } label: {
                                         Image(systemName: "pencil")
+                                            .frame(width: 32, height: 32)
+                                            .contentShape(Rectangle())
                                     }
+                                    .buttonStyle(.plain)
+                                    // 删除：独立的点击热区
                                     Button(role: .destructive) {
                                         deleteTarget = name
                                     } label: {
                                         Image(systemName: "trash")
+                                            .frame(width: 32, height: 32)
+                                            .contentShape(Rectangle())
                                     }
+                                    .buttonStyle(.plain)
                                 }
                                 if let note = vm.ipaNotes[name], !note.isEmpty {
                                     Label(note, systemImage: "note.text")
                                         .font(.caption).foregroundColor(.secondary)
                                 } else {
                                     Button {
-                                        noteTarget = name
                                         noteDraft = ""
+                                        noteTarget = name
                                     } label: {
                                         Label("添加备注", systemImage: "note.text.badge.plus")
                                             .font(.caption)
@@ -96,6 +104,11 @@ struct IPAView: View {
                                 Button {
                                     UIPasteboard.general.string = vm.ipaDownloadURL(name)
                                     copied = name
+                                    let target = name
+                                    Task {
+                                        try? await Task.sleep(nanoseconds: 3_000_000_000)
+                                        if copied == target { copied = nil }
+                                    }
                                 } label: {
                                     Label("复制下载/安装地址", systemImage: "doc.on.doc")
                                         .font(.caption)
@@ -120,41 +133,45 @@ struct IPAView: View {
             }
             .refreshable { await vm.loadIPAs() }
             .task { await vm.loadIPAs() }
+
+            // 全局错误提示（唯一保留的 alert）
             .alert(vm.alertMessage ?? "", isPresented: $vm.showAlert) {
                 Button("好", role: .cancel) {}
             }
-            .alert("确认删除", isPresented: Binding(
-                get: { deleteTarget != nil },
-                set: { if !$0 { deleteTarget = nil } }
-            )) {
-                Button("取消", role: .cancel) { deleteTarget = nil }
+
+            // 删除确认：改用 confirmationDialog，走独立通道，不再和其它 alert 抢状态
+            .confirmationDialog(
+                "确认删除",
+                isPresented: Binding(
+                    get: { deleteTarget != nil },
+                    set: { if !$0 { deleteTarget = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
                 Button("删除", role: .destructive) {
                     if let t = deleteTarget {
                         Task { _ = await vm.deleteIPA(t) }
                     }
                     deleteTarget = nil
                 }
+                Button("取消", role: .cancel) { deleteTarget = nil }
             } message: {
                 if let t = deleteTarget {
                     Text("确定删除备份「\(t)」？仓库里的 IPA 文件会被移除，不可撤销。")
                 }
             }
-            .alert("编辑备注", isPresented: Binding(
+
+            // 编辑备注：改用 sheet，弹窗通道彻底分离，点备注不会再误触发删除
+            .sheet(isPresented: Binding(
                 get: { noteTarget != nil },
                 set: { if !$0 { noteTarget = nil } }
             )) {
-                TextField("备注内容（留空则清除）", text: $noteDraft)
-                Button("取消", role: .cancel) { noteTarget = nil }
-                Button("保存") {
-                    if let t = noteTarget {
-                        let note = noteDraft
+                IPANoteEditor(name: noteTarget ?? "", draft: $noteDraft) {
+                    let t = noteTarget
+                    let note = noteDraft
+                    if let t = t {
                         Task { _ = await vm.setIPANote(fileName: t, note: note) }
                     }
-                    noteTarget = nil
-                }
-            } message: {
-                if let t = noteTarget {
-                    Text("为「\(t)」填写备注")
                 }
             }
         }
@@ -188,5 +205,43 @@ struct IPAView: View {
     private func formatSize(_ bytes: Int) -> String {
         if bytes < 1024 * 1024 { return "\(bytes / 1024) KB" }
         return String(format: "%.1f MB", Double(bytes) / 1024 / 1024)
+    }
+}
+
+/// 备注编辑页：用 sheet 呈现，与删除确认完全隔离
+struct IPANoteEditor: View {
+    let name: String
+    @Binding var draft: String
+    let onSave: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(
+                    header: Text("备注内容"),
+                    footer: Text("给这个备份写点说明，方便以后认出来。留空则清除备注。")
+                ) {
+                    TextEditor(text: $draft)
+                        .frame(minHeight: 120)
+                }
+                Section(header: Text("文件")) {
+                    Text(name).font(.caption).foregroundColor(.secondary)
+                }
+            }
+            .navigationTitle("编辑备注")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        onSave()
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }
