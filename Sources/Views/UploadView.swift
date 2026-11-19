@@ -14,10 +14,7 @@ struct UploadView: View {
                     Button {
                         vm.requestFile { url in handlePickedURL(url) }
                     } label: {
-                        HStack {
-                            Image(systemName: "folder")
-                            Text("从「文件」App 导入 deb")
-                        }
+                        Label("从「文件」App 导入 deb", systemImage: "folder.badge.plus")
                     }
 
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -65,9 +62,16 @@ struct UploadView: View {
                     }
                 } else {
                     Section {
-                        Text("导入 deb 后会自动从文件名推断包名、版本、架构，可再手动修改。")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        VStack(spacing: 12) {
+                            EmptyStateIcon(symbol: "arrow.up.bin")
+                            Text("选择一个 deb 开始")
+                                .font(.subheadline.weight(.medium))
+                            Text("导入后会自动从文件名推断包名、版本、架构，可再手动修改。")
+                                .font(.caption).foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
                     }
                 }
             }

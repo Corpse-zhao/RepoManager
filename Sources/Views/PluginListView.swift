@@ -10,14 +10,23 @@ struct PluginListView: View {
                 if vm.isBusy && vm.packages.isEmpty {
                     ProgressView("加载中…")
                 } else if vm.packages.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "square.stack.3d.up.slash")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
+                    VStack(spacing: 16) {
+                        EmptyStateIcon(symbol: "square.stack.3d.up.slash")
                         Text("源里还没有插件")
-                            .foregroundColor(.secondary)
-                        Button("重新加载") { Task { await vm.loadPackages() } }
+                            .font(.headline)
+                        Text("上传一个 deb，插件就会出现在这里")
+                            .font(.caption).foregroundColor(.secondary)
+                        Button {
+                            Task { await vm.loadPackages() }
+                        } label: {
+                            Label("重新加载", systemImage: "arrow.clockwise")
+                                .font(.subheadline.weight(.medium))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(AppTheme.accent)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 60)
                 } else {
                     List {
                         ForEach(vm.packages) { entry in
@@ -70,25 +79,45 @@ struct PluginListView: View {
 struct PluginRow: View {
     let entry: PackageEntry
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(entry.name.isEmpty ? entry.package : entry.name)
-                    .font(.headline)
-                Spacer()
-                Text("v\(entry.version)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            Text(entry.desc)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .lineLimit(2)
-            Text(entry.arch)
-                .font(.caption2)
-                .foregroundColor(.blue)
+    private var sectionColor: Color {
+        switch entry.section.lowercased() {
+        case "tweaks": return .purple
+        case "utilities", "tools": return .blue
+        case "themes": return .pink
+        default: return .teal
         }
-        .padding(.vertical, 4)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            IconBadge(symbol: "puzzlepiece.extension", color: AppTheme.accent, side: 42)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 6) {
+                    Text(entry.name.isEmpty ? entry.package : entry.name)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    if !entry.version.isEmpty {
+                        Badge(text: "v\(entry.version)", color: .secondary)
+                    }
+                }
+                if !entry.desc.isEmpty {
+                    Text(entry.desc)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+                HStack(spacing: 6) {
+                    if !entry.arch.isEmpty {
+                        Badge(text: entry.arch, color: .blue)
+                    }
+                    if !entry.section.isEmpty {
+                        Badge(text: entry.section, color: sectionColor)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 5)
     }
 }
 
@@ -99,12 +128,26 @@ struct PluginDetailView: View {
 
     var body: some View {
         List {
+            Section {
+                HStack(spacing: 14) {
+                    IconBadge(symbol: "puzzlepiece.extension", color: AppTheme.accent, side: 56)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(entry.name.isEmpty ? entry.package : entry.name)
+                            .font(.title3.weight(.semibold))
+                        HStack(spacing: 6) {
+                            if !entry.version.isEmpty { Badge(text: "v\(entry.version)", color: .secondary) }
+                            if !entry.arch.isEmpty { Badge(text: entry.arch, color: .blue) }
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
             Section("信息") {
-                label("名称", entry.name)
-                label("包名", entry.package)
-                label("版本", entry.version)
-                label("架构", entry.arch)
-                label("大小", entry.size.isEmpty ? "—" : "\(entry.size) 字节")
+                label("名称", entry.name, icon: "tag")
+                label("包名", entry.package, icon: "shippingbox")
+                label("版本", entry.version, icon: "number")
+                label("架构", entry.arch, icon: "cpu")
+                label("大小", entry.size.isEmpty ? "—" : "\(entry.size) 字节", icon: "internaldrive")
             }
             Section("功能描述") {
                 Text(entry.desc.isEmpty ? "无描述" : entry.desc).font(.body)
@@ -127,8 +170,11 @@ struct PluginDetailView: View {
         }
     }
 
-    private func label(_ k: String, _ v: String) -> some View {
-        HStack {
+    private func label(_ k: String, _ v: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .foregroundColor(AppTheme.accent)
+                .frame(width: 20)
             Text(k).foregroundColor(.secondary)
             Spacer()
             Text(v.isEmpty ? "—" : v)

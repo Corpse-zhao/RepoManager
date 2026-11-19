@@ -43,12 +43,26 @@ struct SetupView: View {
         NavigationView {
             Form {
                 Section {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("这个 App 用来在手机上管理你的越狱源：看插件、上传 deb、删插件。")
-                            .font(.subheadline)
-                        Text("绑定只需两样东西，填好后点最下面的「一键绑定」。")
-                            .font(.caption).foregroundColor(.secondary)
+                    VStack(spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 18).fill(AppTheme.accentGradient)
+                            Image(systemName: "square.stack.3d.up")
+                                .font(.system(size: 34, weight: .medium))
+                                .foregroundColor(.white)
+                        }
+                        .frame(width: 68, height: 68)
+                        Text("源管理")
+                            .font(.title2.weight(.semibold))
+                        VStack(spacing: 4) {
+                            Text("在手机上管理你的越狱源：看插件、上传 deb、删插件。")
+                                .font(.subheadline)
+                            Text("绑定只需两样东西，填好后点下面的「一键绑定」。")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        .multilineTextAlignment(.center)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
                 }
 
                 Section(header: Text("1 · GitHub Token（必填）")) {

@@ -36,5 +36,6 @@ struct RootView: View {
                 }
             )
         }
+        .tint(AppTheme.accent)
     }
 }

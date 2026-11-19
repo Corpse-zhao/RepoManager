@@ -60,14 +60,21 @@ struct IPAView: View {
 
                 Section(header: Text("已备份 IPA")) {
                     if vm.ipaFiles.isEmpty {
-                        Text("还没有备份。点上面按钮选择 IPA 上传。")
-                            .font(.caption).foregroundColor(.secondary)
+                        VStack(spacing: 12) {
+                            EmptyStateIcon(symbol: "app.badge")
+                            Text("还没有备份")
+                                .font(.subheadline.weight(.medium))
+                            Text("点上面按钮选择 IPA 上传，留个自用备份")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
                     } else {
                         ForEach(vm.ipaFiles, id: \.self) { name in
                             VStack(alignment: .leading, spacing: 8) {
-                                HStack(spacing: 14) {
-                                    Image(systemName: "app.badge")
-                                    Text(name).font(.subheadline)
+                                HStack(spacing: 12) {
+                                    IconBadge(symbol: "app.badge", color: .blue, side: 34)
+                                    Text(name).font(.subheadline.weight(.medium)).lineLimit(1)
                                     Spacer(minLength: 4)
                                     // 编辑备注：独立的点击热区（plain 样式 + 固定 frame 防相邻按钮误触）
                                     Button {

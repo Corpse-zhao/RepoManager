@@ -14,19 +14,40 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("已绑定仓库")) {
-                    InfoRow(title: "仓库", value: vm.config.repoFullName)
-                    InfoRow(title: "分支", value: vm.config.branch)
-                    InfoRow(title: "源地址", value: vm.config.pagesBase)
-                    InfoRow(title: "Token", value: "\(vm.config.token.prefix(7))…（已隐藏）")
+                Section {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 13).fill(AppTheme.accentGradient)
+                            Image(systemName: "server.rack")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                        }
+                        .frame(width: 52, height: 52)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(vm.config.repo.isEmpty ? "未绑定" : vm.config.repo)
+                                .font(.headline)
+                            Text("\(vm.config.owner) · \(vm.config.branch)")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                Section(header: Text("仓库信息")) {
+                    InfoRow(title: "源地址", value: vm.config.pagesBase, icon: "link")
+                    InfoRow(title: "Token", value: "\(vm.config.token.prefix(7))…（已隐藏）", icon: "key.fill")
                 }
 
                 Section(header: Text("操作"), footer: Text("重新绑定可换用其他 GitHub 账号或仓库。")) {
-                    Button("测试连接") {
+                    Button {
                         Task { _ = await vm.testConnection() }
+                    } label: {
+                        Label("测试连接", systemImage: "bolt.fill")
                     }
-                    Button("重新绑定", role: .destructive) {
+                    Button(role: .destructive) {
                         showUnbind = true
+                    } label: {
+                        Label("重新绑定", systemImage: "arrow.triangle.branch")
                     }
                 }
 
@@ -56,12 +77,19 @@ struct SettingsView: View {
 struct InfoRow: View {
     let title: String
     let value: String
+    var icon: String? = nil
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
+            if let icon = icon {
+                Image(systemName: icon)
+                    .foregroundColor(AppTheme.accent)
+                    .frame(width: 20)
+            }
             Text(title).foregroundColor(.secondary)
             Spacer()
             Text(value)
                 .font(.caption)
+                .foregroundColor(title == "源地址" ? AppTheme.accent : .primary)
                 .textSelection(.enabled)
                 .lineLimit(2)
                 .multilineTextAlignment(.trailing)
