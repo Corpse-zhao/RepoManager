@@ -162,6 +162,70 @@ final class RepoViewModel: ObservableObject {
         }
     }
 
+    // MARK: - IPA 备份（存到仓库 ipas/ 目录，纯文件托管，不建索引）
+    @Published var ipaFiles: [String] = []
+
+    func loadIPAs() async {
+        guard config.isValid else { return }
+        isBusy = true; status = "正在读取 IPA 列表…"
+        defer { isBusy = false; status = "就绪" }
+        do {
+            let names = try await service.listDir("ipas")
+            ipaFiles = names.filter { $0.lowercased().hasSuffix(".ipa") }
+                .sorted { $0 < $1 }
+            status = "已备份 \(ipaFiles.count) 个 IPA"
+        } catch RepoError.http(404, _) {
+            ipaFiles = []   // 目录还不存在
+            status = "还没有 IPA 备份"
+        } catch {
+            alert("读取 IPA 列表失败：\(error.localizedDescription)")
+        }
+    }
+
+    func uploadIPA(fileName: String, data: Data) async -> Bool {
+        guard config.isValid else { alert("尚未绑定源"); return false }
+        // GitHub blob 单文件上限 100MB，留点余量
+        guard data.count <= 99 * 1024 * 1024 else {
+            alert("IPA 超过 99MB，GitHub 单个文件放不下（可压缩后再传）。")
+            return false
+        }
+        isBusy = true; status = "正在上传 \(fileName)…"
+        defer { isBusy = false; status = "就绪" }
+        do {
+            let path = "ipas/\(fileName)"
+            try await service.commit(changes: [FileChange(path: path, data: data, sha: nil)],
+                                     message: "备份 IPA \(fileName)（RepoManager）")
+            await loadIPAs()
+            status = "已备份 \(fileName)"
+            return true
+        } catch {
+            alert("IPA 上传失败：\(error.localizedDescription)")
+            return false
+        }
+    }
+
+    func deleteIPA(_ fileName: String) async -> Bool {
+        isBusy = true; status = "正在删除 \(fileName)…"
+        defer { isBusy = false; status = "就绪" }
+        do {
+            try await service.commit(
+                changes: [FileChange(path: "ipas/\(fileName)", data: nil, sha: nil)],
+                message: "删除 IPA 备份 \(fileName)（RepoManager）")
+            await loadIPAs()
+            status = "已删除 \(fileName)"
+            return true
+        } catch {
+            alert("IPA 删除失败：\(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// IPA 在仓库里的 raw 下载地址（巨魔可直接打开安装）
+    func ipaDownloadURL(_ fileName: String) -> String {
+        let encoded = fileName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? fileName
+        return "\(config.pagesBase)ipas/\(encoded)"
+    }
+
     // MARK: 编辑插件元数据（不换 deb 文件）
     func update(entry original: PackageEntry, to draft: PackageEntry) async -> Bool {
         guard config.isValid else {

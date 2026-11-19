@@ -12,6 +12,9 @@ struct MainTabView: View {
             UploadView()
                 .tabItem { Label("上传", systemImage: "arrow.up.bin") }
 
+            IPAView()
+                .tabItem { Label("IPA备份", systemImage: "app.badge") }
+
             SettingsView()
                 .tabItem { Label("设置", systemImage: "gear") }
         }
