@@ -19,6 +19,13 @@ final class RepoViewModel: ObservableObject {
     }
 
     func alert(_ msg: String) {
+        // 切换页面会取消进行中的网络请求，这类错误是正常现象，不该弹窗打扰
+        let lower = msg.lowercased()
+        if lower.contains("cancelled") || lower.contains("canceled")
+            || lower.contains("请求已取消") || lower.contains("is Cancelled")
+            || lower.contains("code=-999") {
+            return
+        }
         alertMessage = msg
         showAlert = true
     }
@@ -85,6 +92,10 @@ final class RepoViewModel: ObservableObject {
             }
             status = "共 \(packages.count) 个插件"
         } catch {
+            let m = error.localizedDescription.lowercased()
+            if m.contains("cancelled") || m.contains("canceled") || m.contains("code=-999") {
+                return   // 切页面取消请求，静默
+            }
             alert("读取失败：\(error.localizedDescription)")
         }
     }
@@ -184,6 +195,10 @@ final class RepoViewModel: ObservableObject {
             ipaFiles = []   // 目录还不存在
             status = "还没有 IPA 备份"
         } catch {
+            let m = error.localizedDescription.lowercased()
+            if m.contains("cancelled") || m.contains("canceled") || m.contains("code=-999") {
+                return   // 切页面取消请求，静默
+            }
             alert("读取 IPA 列表失败：\(error.localizedDescription)")
         }
     }
