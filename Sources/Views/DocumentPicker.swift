@@ -1,45 +1,77 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// 系统原生文件选择器：用「复制副本」方式，返回的是 App 沙盒内的普通 URL，
-/// 不需要 security-scoped 权限，彻底避免"选不中 / 读不到"的问题。
+/// 系统原生文件选择器。
+/// 关键改动：不再用 SwiftUI .sheet 包 UIDocumentPicker（iOS 17+ 会出现"能弹出但点文件没反应"），
+/// 改由 UIKit 宿主直接 present。asCopy:true 把文件复制进沙盒，兼容自签 / 巨魔环境。
 struct DocumentPicker: UIViewControllerRepresentable {
+    @Binding var isPresented: Bool
     var onPick: (URL) -> Void
     var onError: (String) -> Void
 
-    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
-        picker.delegate = context.coordinator
-        picker.allowsMultipleSelection = false
-        return picker
+    func makeUIViewController(context: Context) -> PickerHostController {
+        let host = PickerHostController()
+        host.coordinator = context.coordinator
+        return host
     }
 
-    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onPick: onPick, onError: onError)
+    func updateUIViewController(_ host: PickerHostController, context: Context) {
+        let c = context.coordinator
+        c.onPick = onPick
+        c.onError = onError
+        c.onFinish = { isPresented = false }
+        if isPresented {
+            host.tryPresent()
+        } else {
+            host.reset()
+        }
     }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     final class Coordinator: NSObject, UIDocumentPickerDelegate {
-        let onPick: (URL) -> Void
-        let onError: (String) -> Void
-
-        init(onPick: @escaping (URL) -> Void, onError: @escaping (String) -> Void) {
-            self.onPick = onPick
-            self.onError = onError
-        }
+        var onPick: ((URL) -> Void)?
+        var onError: ((String) -> Void)?
+        var onFinish: (() -> Void)?
 
         func documentPicker(_ controller: UIDocumentPickerViewController,
                             didPickDocumentsAt urls: [URL]) {
+            onFinish?()
             guard let url = urls.first else {
-                onError("没有选到文件")
+                onError?("没有选到文件")
                 return
             }
-            onPick(url)
+            onPick?(url)
         }
 
         func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-            // 用户取消，静默
+            onFinish?()
         }
+    }
+}
+
+/// 空宿主，负责用 UIKit 方式弹出选择器
+final class PickerHostController: UIViewController {
+    weak var coordinator: DocumentPicker.Coordinator?
+    private var didPresent = false
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        tryPresent()
+    }
+
+    func reset() { didPresent = false }
+
+    func tryPresent() {
+        guard !didPresent,
+              presentedViewController == nil,
+              view.window != nil,
+              let coord = coordinator else { return }
+        didPresent = true
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+        picker.delegate = coord
+        picker.allowsMultipleSelection = false
+        picker.modalPresentationStyle = .fullScreen
+        present(picker, animated: true)
     }
 }

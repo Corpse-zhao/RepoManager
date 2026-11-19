@@ -20,12 +20,6 @@ struct UploadView: View {
                             Text("从「文件」App 导入 deb")
                         }
                     }
-                    .sheet(isPresented: $showImporter) {
-                        DocumentPicker(
-                            onPick: { url in handlePickedURL(url) },
-                            onError: { msg in vm.alert(msg) }
-                        )
-                    }
 
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text("链接：")
@@ -81,6 +75,13 @@ struct UploadView: View {
             .navigationTitle("上传插件")
             .alert(vm.alertMessage ?? "", isPresented: $vm.showAlert) {
                 Button("好", role: .cancel) {}
+            }
+            .background {
+                DocumentPicker(
+                    isPresented: $showImporter,
+                    onPick: { url in handlePickedURL(url) },
+                    onError: { msg in vm.alert(msg) }
+                )
             }
         }
     }

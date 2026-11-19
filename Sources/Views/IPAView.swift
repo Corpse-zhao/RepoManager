@@ -24,12 +24,6 @@ struct IPAView: View {
                             Text("从「文件」App 选择 IPA")
                         }
                     }
-                    .sheet(isPresented: $showImporter) {
-                        DocumentPicker(
-                            onPick: { url in handlePickedURL(url) },
-                            onError: { msg in vm.alert(msg) }
-                        )
-                    }
 
                     if !pendingName.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
@@ -123,6 +117,13 @@ struct IPAView: View {
                 if let t = deleteTarget {
                     Text("确定删除备份「\(t)」？仓库里的 IPA 文件会被移除，不可撤销。")
                 }
+            }
+            .background {
+                DocumentPicker(
+                    isPresented: $showImporter,
+                    onPick: { url in handlePickedURL(url) },
+                    onError: { msg in vm.alert(msg) }
+                )
             }
         }
     }
