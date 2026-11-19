@@ -59,15 +59,34 @@ jobs:
           echo "APP=$APP"
           echo "path=$APP" >> $GITHUB_OUTPUT
 
-      - name: Verify app icon compiled into bundle
+      - name: Compile & install app icon (actool)
         run: |
           APP="${{ steps.app.outputs.path }}"
-          echo "--- app bundle contents ---"
+          ICON_STAGE=$(pwd)/icon_stage
+          rm -rf "$ICON_STAGE"
+          mkdir -p "$ICON_STAGE"
+          echo "--- compiling asset catalog with actool ---"
+          xcrun actool Assets/Assets.xcassets \
+            --compile "$ICON_STAGE" \
+            --app-icon AppIcon \
+            --output-partial-info-plist "$ICON_STAGE/icon-info.plist" \
+            --platform iphoneos \
+            --minimum-deployment-target 15.0 \
+            --target-device iphone \
+            --target-device ipad
+          echo "--- actool output ---"
+          ls -la "$ICON_STAGE"
+          if [ ! -f "$ICON_STAGE/Assets.car" ]; then
+            echo "ERROR: actool did not produce Assets.car"; exit 1
+          fi
+          cp "$ICON_STAGE/Assets.car" "$APP/Assets.car"
+          # 把 actool 生成的 CFBundleIcons 等键合并进 Info.plist
+          /usr/libexec/PlistBuddy -c "Merge $ICON_STAGE/icon-info.plist" "$APP/Info.plist"
+          echo "--- final app bundle ---"
           ls -la "$APP"
-          echo "--- pbxproj resources build phase ---"
-          sed -n '/PBXResourcesBuildPhase section/,/End PBXResourcesBuildPhase section/p' RepoManager.xcodeproj/project.pbxproj
-          echo "--- built products tree ---"
-          find build/Build/Products/Release-iphoneos -type f | head -30
+          echo "--- Info.plist icon keys ---"
+          plutil -p "$APP/Info.plist" | grep -A6 -i "CFBundleIcons" || true
+          echo "ICON INSTALLED"
 
       - name: Fake-sign with ldid (roothide / arm64e)
         run: |
