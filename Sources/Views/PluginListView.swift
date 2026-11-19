@@ -166,18 +166,18 @@ struct PluginEditView: View {
         NavigationView {
             Form {
                 Section(header: Text("基本信息")) {
-                    LabelledField("显示名称", text: $name)
-                    LabelledField("版本", text: $version, placeholder: "如 1.2.3")
+                    LabelledField(label: "显示名称", text: $name)
+                    LabelledField(label: "版本", text: $version, placeholder: "如 1.2.3")
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    LabelledField("分类", text: $section, placeholder: "如 Tweaks")
+                    LabelledField(label: "分类", text: $section, placeholder: "如 Tweaks")
                 }
                 Section(header: Text("功能描述"), footer: Text("Sileo 详情页里显示的介绍文字。")) {
                     TextEditor(text: $desc).frame(minHeight: 100)
                 }
                 Section(header: Text("安装信息")) {
-                    LabelledField("依赖", text: $depends, placeholder: "如 mobilesubstrate，留空则无")
+                    LabelledField(label: "依赖", text: $depends, placeholder: "如 mobilesubstrate，留空则无")
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    LabelledField("维护者", text: $maintainer)
+                    LabelledField(label: "维护者", text: $maintainer)
                 }
                 Section(header: Text("不可修改"), footer: Text("包名、架构、deb 文件不会改动；如需更换 deb，请用「上传」页面传同名包覆盖。")) {
                     Label("包名：\(entry.package)", systemImage: "lock.fill").font(.caption)

@@ -65,7 +65,7 @@ struct SetupView: View {
                 }
 
                 Section(header: Text("2 · 源仓库（必填）")) {
-                    LabelledField("源仓库", text: $repoInput, placeholder: "例如 Corpse-zhao/banli")
+                    LabelledField(label: "源仓库", text: $repoInput, placeholder: "例如 Corpse-zhao/banli")
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     Text("填什么：存放越狱源的 GitHub 仓库（里面有 Packages、debs 文件夹的那个）。\n三种写法任选一种粘贴：")

@@ -45,17 +45,17 @@ struct UploadView: View {
 
                 if !draft.fileName.isEmpty {
                     Section(header: Text("已选择：\(draft.fileName)")) {
-                        LabelledField("显示名称", text: $draft.name)
-                        LabelledField("包名", text: $draft.package)
+                        LabelledField(label: "显示名称", text: $draft.name)
+                        LabelledField(label: "包名", text: $draft.package)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                        LabelledField("版本", text: $draft.version)
-                        LabelledField("架构", text: $draft.arch)
+                        LabelledField(label: "版本", text: $draft.version)
+                        LabelledField(label: "架构", text: $draft.arch)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                        LabelledField("功能描述", text: $draft.desc)
-                        LabelledField("依赖", text: $draft.depends)
-                        LabelledField("分类", text: $draft.section)
+                        LabelledField(label: "功能描述", text: $draft.desc)
+                        LabelledField(label: "依赖", text: $draft.depends)
+                        LabelledField(label: "分类", text: $draft.section)
 
                         Button {
                             Task {
