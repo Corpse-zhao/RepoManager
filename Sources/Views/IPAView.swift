@@ -3,7 +3,6 @@ import UniformTypeIdentifiers
 
 struct IPAView: View {
     @EnvironmentObject var vm: RepoViewModel
-    @State private var showImporter = false
     @State private var pendingURL: URL?
     @State private var pendingName = ""
     @State private var pendingSize = ""
@@ -17,7 +16,7 @@ struct IPAView: View {
                     "把 IPA 文件存到你的源仓库 ipas/ 目录，作为备份留着。只是在仓库里存文件，不会加入越狱源索引，也不影响 Sileo。单个 IPA 上限 99MB。"
                 )) {
                     Button {
-                        showImporter = true
+                        vm.requestFile { url in handlePickedURL(url) }
                     } label: {
                         HStack {
                             Image(systemName: "square.and.arrow.up")
@@ -117,13 +116,6 @@ struct IPAView: View {
                 if let t = deleteTarget {
                     Text("确定删除备份「\(t)」？仓库里的 IPA 文件会被移除，不可撤销。")
                 }
-            }
-            .background {
-                DocumentPicker(
-                    isPresented: $showImporter,
-                    onPick: { url in handlePickedURL(url) },
-                    onError: { msg in vm.alert(msg) }
-                )
             }
         }
     }

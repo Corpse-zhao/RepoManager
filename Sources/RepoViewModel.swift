@@ -12,6 +12,23 @@ final class RepoViewModel: ObservableObject {
     @Published var alertMessage: String?
     @Published var showAlert = false
 
+    // 全 App 共用一个文件选择器：只在最外层挂一个宿主，避免多 Tab 各自挂宿主互相干扰
+    @Published var isFilePickerPresented = false
+    private var filePickerHandler: ((URL) -> Void)?
+
+    /// 申请选择文件，选中后回调（扩展名由调用方校验）
+    func requestFile(handler: @escaping (URL) -> Void) {
+        filePickerHandler = handler
+        isFilePickerPresented = true
+    }
+
+    func handlePickedFile(_ url: URL) {
+        isFilePickerPresented = false
+        let h = filePickerHandler
+        filePickerHandler = nil
+        h?(url)
+    }
+
     private var service: GitHubService { GitHubService(config: config) }
 
     init() {

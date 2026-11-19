@@ -26,5 +26,15 @@ struct RootView: View {
         .alert(vm.alertMessage ?? "", isPresented: $vm.showAlert) {
             Button("好", role: .cancel) {}
         }
+        .background {
+            DocumentPicker(
+                isPresented: $vm.isFilePickerPresented,
+                onPick: { url in vm.handlePickedFile(url) },
+                onError: { msg in
+                    vm.isFilePickerPresented = false
+                    vm.alert(msg)
+                }
+            )
+        }
     }
 }

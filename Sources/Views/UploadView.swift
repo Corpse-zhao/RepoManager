@@ -4,7 +4,6 @@ import UniformTypeIdentifiers
 struct UploadView: View {
     @EnvironmentObject var vm: RepoViewModel
     @State private var draft = UploadDraft()
-    @State private var showImporter = false
     @State private var urlString = ""
     @State private var downloading = false
 
@@ -13,7 +12,7 @@ struct UploadView: View {
             Form {
                 Section(header: Text("选择 deb 来源")) {
                     Button {
-                        showImporter = true
+                        vm.requestFile { url in handlePickedURL(url) }
                     } label: {
                         HStack {
                             Image(systemName: "folder")
@@ -75,13 +74,6 @@ struct UploadView: View {
             .navigationTitle("上传插件")
             .alert(vm.alertMessage ?? "", isPresented: $vm.showAlert) {
                 Button("好", role: .cancel) {}
-            }
-            .background {
-                DocumentPicker(
-                    isPresented: $showImporter,
-                    onPick: { url in handlePickedURL(url) },
-                    onError: { msg in vm.alert(msg) }
-                )
             }
         }
     }
