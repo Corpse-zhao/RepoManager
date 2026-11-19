@@ -4,6 +4,13 @@ struct SettingsView: View {
     @EnvironmentObject var vm: RepoViewModel
     @State private var showUnbind = false
 
+    private var appVersion: String {
+        let b = Bundle.main
+        let v = b.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        let build = b.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        return "\(v) (\(build))"
+    }
+
     var body: some View {
         NavigationView {
             Form {
@@ -24,6 +31,7 @@ struct SettingsView: View {
                 }
 
                 Section(header: Text("关于")) {
+                    InfoRow(title: "版本", value: appVersion)
                     Text("RepoManager · 在手机上管理你的越狱源：查看、上传、删除插件，自动重建 Packages 索引与 Sileo 图文页。")
                         .font(.caption)
                         .foregroundColor(.secondary)

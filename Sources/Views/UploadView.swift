@@ -20,12 +20,11 @@ struct UploadView: View {
                             Text("从「文件」App 导入 deb")
                         }
                     }
-                    .fileImporter(
-                        isPresented: $showImporter,
-                        allowedContentTypes: [.item],
-                        allowsMultipleSelection: false
-                    ) { result in
-                        handleImport(result)
+                    .sheet(isPresented: $showImporter) {
+                        DocumentPicker(
+                            onPick: { url in handlePickedURL(url) },
+                            onError: { msg in vm.alert(msg) }
+                        )
                     }
 
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -86,32 +85,22 @@ struct UploadView: View {
         }
     }
 
-    private func handleImport(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let url = urls.first else {
-                vm.alert("没有选到文件")
-                return
-            }
-            let ext = (url.lastPathComponent as NSString).pathExtension.lowercased()
-            guard ext == "deb" else {
-                vm.alert("请选择 .deb 文件（你选的是 .\(ext.isEmpty ? "未知" : ext)）")
-                return
-            }
-            let accessing = url.startAccessingSecurityScopedResource()
-            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-            do {
-                let data = try Data(contentsOf: url)
-                var d = UploadDraft()
-                d.debData = data
-                d.infer(from: url.lastPathComponent)
-                draft = d
-                vm.status = "已选择 \(url.lastPathComponent)"
-            } catch {
-                vm.alert("读取失败：\(error.localizedDescription)")
-            }
-        case .failure(let err):
-            vm.alert("导入失败：\(err.localizedDescription)")
+    private func handlePickedURL(_ url: URL) {
+        let ext = (url.lastPathComponent as NSString).pathExtension.lowercased()
+        guard ext == "deb" else {
+            vm.alert("请选择 .deb 文件（你选的是 .\(ext.isEmpty ? "未知" : ext)）")
+            return
+        }
+        do {
+            // asCopy 模式：URL 已是沙盒内副本，直接读即可
+            let data = try Data(contentsOf: url)
+            var d = UploadDraft()
+            d.debData = data
+            d.infer(from: url.lastPathComponent)
+            draft = d
+            vm.status = "已选择 \(url.lastPathComponent)"
+        } catch {
+            vm.alert("读取失败：\(error.localizedDescription)")
         }
     }
 
