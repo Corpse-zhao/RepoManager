@@ -105,7 +105,9 @@ final class RepoViewModel: ObservableObject {
             } else {
                 entries = []
             }
-            // 2) 移除同包名的旧条目（同包更新 = 覆盖）
+            // 2) 移除同包名的旧条目（同包更新 = 覆盖），并记下旧 deb 路径以便清理
+            let oldDebPaths = entries.filter { $0.package == draft.package }
+                .map { $0.filename }.filter { !$0.isEmpty }
             entries.removeAll { $0.package == draft.package }
 
             let pkgId = draft.package.isEmpty ? (draft.fileName as NSString).deletingPathExtension : draft.package
@@ -148,6 +150,10 @@ final class RepoViewModel: ObservableObject {
                 FileChange(path: "Packages.gz", data: gzData, sha: nil),
                 FileChange(path: "Release", data: release, sha: nil),
             ]
+            // 删掉同名包的旧 deb（版本号变了文件名不同，避免仓库里堆积旧文件）
+            for old in oldDebPaths where old != debPath {
+                changes.append(FileChange(path: old, data: nil, sha: nil))
+            }
             // 删掉旧的 bz2，避免客户端读到过期索引
             if let names = try? await service.listDir(""), names.contains("Packages.bz2") {
                 changes.append(FileChange(path: "Packages.bz2", data: nil, sha: nil))
