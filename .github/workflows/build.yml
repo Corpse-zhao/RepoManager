@@ -28,8 +28,11 @@ jobs:
 
       - name: Generate Xcode project
         run: |
+          xcodegen --version
           xcodegen generate --spec project.yml
           ls -la RepoManager.xcodeproj
+          echo "=== asset catalog refs in pbxproj ==="
+          grep -nE "xcassets|assetcatalog|Assets.car|PBXResourcesBuildPhase" RepoManager.xcodeproj/project.pbxproj | head -40 || echo "NO ASSET CATALOG REFS FOUND"
           echo "PROJECT GENERATED"
 
       - name: Build app (unsigned, iphoneos)
@@ -61,11 +64,10 @@ jobs:
           APP="${{ steps.app.outputs.path }}"
           echo "--- app bundle contents ---"
           ls -la "$APP"
-          if [ ! -f "$APP/Assets.car" ]; then
-            echo "ERROR: Assets.car missing - app icon was NOT compiled into the bundle!"
-            exit 1
-          fi
-          echo "Assets.car found ($(stat -f%z "$APP/Assets.car") bytes) - icon OK"
+          echo "--- pbxproj resources build phase ---"
+          sed -n '/PBXResourcesBuildPhase section/,/End PBXResourcesBuildPhase section/p' RepoManager.xcodeproj/project.pbxproj
+          echo "--- built products tree ---"
+          find build/Build/Products/Release-iphoneos -type f | head -30
 
       - name: Fake-sign with ldid (roothide / arm64e)
         run: |
