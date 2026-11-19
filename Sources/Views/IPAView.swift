@@ -6,8 +6,11 @@ struct IPAView: View {
     @State private var pendingURL: URL?
     @State private var pendingName = ""
     @State private var pendingSize = ""
+    @State private var pendingNote = ""
     @State private var deleteTarget: String?
     @State private var copied: String?
+    @State private var noteTarget: String?
+    @State private var noteDraft = ""
 
     var body: some View {
         NavigationView {
@@ -28,13 +31,14 @@ struct IPAView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("待上传：\(pendingName)").font(.subheadline.bold())
                             Text(pendingSize).font(.caption).foregroundColor(.secondary)
+                            LabelledField(label: "备注", text: $pendingNote, placeholder: "选填，如：备用签名版")
                             Button {
                                 guard let url = pendingURL else { return }
                                 let accessing = url.startAccessingSecurityScopedResource()
                                 defer { if accessing { url.stopAccessingSecurityScopedResource() } }
                                 if let data = try? Data(contentsOf: url) {
                                     Task {
-                                        let ok = await vm.uploadIPA(fileName: pendingName, data: data)
+                                        let ok = await vm.uploadIPA(fileName: pendingName, data: data, note: pendingNote)
                                         if ok { clearPending() }
                                     }
                                 } else {
@@ -65,10 +69,28 @@ struct IPAView: View {
                                     Image(systemName: "app.badge")
                                     Text(name).font(.subheadline)
                                     Spacer()
+                                    Button {
+                                        noteTarget = name
+                                        noteDraft = vm.ipaNotes[name] ?? ""
+                                    } label: {
+                                        Image(systemName: "pencil")
+                                    }
                                     Button(role: .destructive) {
                                         deleteTarget = name
                                     } label: {
                                         Image(systemName: "trash")
+                                    }
+                                }
+                                if let note = vm.ipaNotes[name], !note.isEmpty {
+                                    Label(note, systemImage: "note.text")
+                                        .font(.caption).foregroundColor(.secondary)
+                                } else {
+                                    Button {
+                                        noteTarget = name
+                                        noteDraft = ""
+                                    } label: {
+                                        Label("添加备注", systemImage: "note.text.badge.plus")
+                                            .font(.caption)
                                     }
                                 }
                                 Button {
@@ -117,6 +139,24 @@ struct IPAView: View {
                     Text("确定删除备份「\(t)」？仓库里的 IPA 文件会被移除，不可撤销。")
                 }
             }
+            .alert("编辑备注", isPresented: Binding(
+                get: { noteTarget != nil },
+                set: { if !$0 { noteTarget = nil } }
+            )) {
+                TextField("备注内容（留空则清除）", text: $noteDraft)
+                Button("取消", role: .cancel) { noteTarget = nil }
+                Button("保存") {
+                    if let t = noteTarget {
+                        let note = noteDraft
+                        Task { _ = await vm.setIPANote(fileName: t, note: note) }
+                    }
+                    noteTarget = nil
+                }
+            } message: {
+                if let t = noteTarget {
+                    Text("为「\(t)」填写备注")
+                }
+            }
         }
     }
 
@@ -142,6 +182,7 @@ struct IPAView: View {
         pendingURL = nil
         pendingName = ""
         pendingSize = ""
+        pendingNote = ""
     }
 
     private func formatSize(_ bytes: Int) -> String {

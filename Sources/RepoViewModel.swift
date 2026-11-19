@@ -198,6 +198,20 @@ final class RepoViewModel: ObservableObject {
 
     // MARK: - IPA 备份（存到仓库 ipas/ 目录，纯文件托管，不建索引）
     @Published var ipaFiles: [String] = []
+    @Published var ipaNotes: [String: String] = [:]   // 文件名 → 备注
+
+    /// 读取备注映射（ipas/notes.json）
+    private func readIPANotes() async -> [String: String] {
+        guard let f = try? await service.readFile("ipas/notes.json"),
+              let obj = try? JSONSerialization.jsonObject(with: f.data),
+              let map = obj as? [String: String] else { return [:] }
+        return map
+    }
+
+    private func encodeIPANotes(_ notes: [String: String]) -> Data {
+        (try? JSONSerialization.data(withJSONObject: notes, options: [.prettyPrinted]))
+            ?? Data("{}".utf8)
+    }
 
     func loadIPAs() async {
         guard config.isValid else { return }
@@ -205,8 +219,9 @@ final class RepoViewModel: ObservableObject {
         defer { isBusy = false; status = "就绪" }
         do {
             let names = try await service.listDir("ipas")
-            ipaFiles = names.filter { $0.lowercased().hasSuffix(".ipa") }
+            ipaFiles = names.filter { $0.lowercased().hasSuffix(".ipa") && $0 != "notes.json" }
                 .sorted { $0 < $1 }
+            ipaNotes = await readIPANotes()
             status = "已备份 \(ipaFiles.count) 个 IPA"
         } catch RepoError.http(404, _) {
             ipaFiles = []   // 目录还不存在
@@ -220,7 +235,7 @@ final class RepoViewModel: ObservableObject {
         }
     }
 
-    func uploadIPA(fileName: String, data: Data) async -> Bool {
+    func uploadIPA(fileName: String, data: Data, note: String = "") async -> Bool {
         guard config.isValid else { alert("尚未绑定源"); return false }
         // GitHub blob 单文件上限 100MB，留点余量
         guard data.count <= 99 * 1024 * 1024 else {
@@ -230,9 +245,16 @@ final class RepoViewModel: ObservableObject {
         isBusy = true; status = "正在上传 \(fileName)…"
         defer { isBusy = false; status = "就绪" }
         do {
+            // 备注写进 notes.json（跟 IPA 同一次原子提交）
+            var notes = await readIPANotes()
+            let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { notes.removeValue(forKey: fileName) }
+            else { notes[fileName] = trimmed }
             let path = "ipas/\(fileName)"
-            try await service.commit(changes: [FileChange(path: path, data: data, sha: nil)],
-                                     message: "备份 IPA \(fileName)（RepoManager）")
+            try await service.commit(changes: [
+                FileChange(path: path, data: data, sha: nil),
+                FileChange(path: "ipas/notes.json", data: encodeIPANotes(notes), sha: nil)
+            ], message: "备份 IPA \(fileName)（RepoManager）")
             await loadIPAs()
             status = "已备份 \(fileName)"
             return true
@@ -242,12 +264,39 @@ final class RepoViewModel: ObservableObject {
         }
     }
 
+    /// 修改某个 IPA 的备注（留空则清除）
+    func setIPANote(fileName: String, note: String) async -> Bool {
+        guard config.isValid else { alert("尚未绑定源"); return false }
+        isBusy = true; status = "正在保存备注…"
+        defer { isBusy = false; status = "就绪" }
+        do {
+            var notes = await readIPANotes()
+            let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { notes.removeValue(forKey: fileName) }
+            else { notes[fileName] = trimmed }
+            try await service.commit(
+                changes: [FileChange(path: "ipas/notes.json", data: encodeIPANotes(notes), sha: nil)],
+                message: "更新 IPA 备注 \(fileName)（RepoManager）")
+            ipaNotes = notes
+            status = "备注已保存"
+            return true
+        } catch {
+            alert("保存备注失败：\(error.localizedDescription)")
+            return false
+        }
+    }
+
     func deleteIPA(_ fileName: String) async -> Bool {
         isBusy = true; status = "正在删除 \(fileName)…"
         defer { isBusy = false; status = "就绪" }
         do {
+            var notes = await readIPANotes()
+            notes.removeValue(forKey: fileName)
             try await service.commit(
-                changes: [FileChange(path: "ipas/\(fileName)", data: nil, sha: nil)],
+                changes: [
+                    FileChange(path: "ipas/\(fileName)", data: nil, sha: nil),
+                    FileChange(path: "ipas/notes.json", data: encodeIPANotes(notes), sha: nil)
+                ],
                 message: "删除 IPA 备份 \(fileName)（RepoManager）")
             await loadIPAs()
             status = "已删除 \(fileName)"
