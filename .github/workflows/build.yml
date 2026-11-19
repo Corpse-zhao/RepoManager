@@ -56,6 +56,17 @@ jobs:
           echo "APP=$APP"
           echo "path=$APP" >> $GITHUB_OUTPUT
 
+      - name: Verify app icon compiled into bundle
+        run: |
+          APP="${{ steps.app.outputs.path }}"
+          echo "--- app bundle contents ---"
+          ls -la "$APP"
+          if [ ! -f "$APP/Assets.car" ]; then
+            echo "ERROR: Assets.car missing - app icon was NOT compiled into the bundle!"
+            exit 1
+          fi
+          echo "Assets.car found ($(stat -f%z "$APP/Assets.car") bytes) - icon OK"
+
       - name: Fake-sign with ldid (roothide / arm64e)
         run: |
           APP="${{ steps.app.outputs.path }}"
@@ -75,21 +86,21 @@ jobs:
           cp -R "$APP" "$STAGE/Applications/RepoManager.app"
           cp packaging/control "$STAGE/DEBIAN/control"
           # roothide: Architecture 必须是 iphoneos-arm64e，路径相对（无 /var/jb）
-          dpkg-deb -Zxz --build "$STAGE" RepoManager_1.1.2_iphoneos-arm64e.deb
-          ls -lh RepoManager_1.1.2_iphoneos-arm64e.deb
+          dpkg-deb -Zxz --build "$STAGE" RepoManager_1.1.3_iphoneos-arm64e.deb
+          ls -lh RepoManager_1.1.3_iphoneos-arm64e.deb
           echo "DEB BUILT"
 
       - name: Verify deb
         run: |
-          dpkg-deb -I RepoManager_1.1.2_iphoneos-arm64e.deb
+          dpkg-deb -I RepoManager_1.1.3_iphoneos-arm64e.deb
           echo "--- contents ---"
-          dpkg-deb -c RepoManager_1.1.2_iphoneos-arm64e.deb | head -20
+          dpkg-deb -c RepoManager_1.1.3_iphoneos-arm64e.deb | head -20
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: RepoManager-deb
-          path: RepoManager_1.1.2_iphoneos-arm64e.deb
+          path: RepoManager_1.1.3_iphoneos-arm64e.deb
           if-no-files-found: error
 
       - name: Package IPA (for TrollStore / backup)
@@ -100,16 +111,16 @@ jobs:
           mkdir -p "$IPA_STAGE/Payload"
           cp -R "$APP" "$IPA_STAGE/Payload/RepoManager.app"
           cd "$IPA_STAGE"
-          zip -qry ../RepoManager_1.1.2.ipa Payload
+          zip -qry ../RepoManager_1.1.3.ipa Payload
           cd ..
-          ls -lh RepoManager_1.1.2.ipa
+          ls -lh RepoManager_1.1.3.ipa
           echo "--- ipa contents ---"
-          unzip -l RepoManager_1.1.2.ipa | head -20
+          unzip -l RepoManager_1.1.3.ipa | head -20
           echo "IPA BUILT"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: RepoManager-ipa
-          path: RepoManager_1.1.2.ipa
+          path: RepoManager_1.1.3.ipa
           if-no-files-found: error
