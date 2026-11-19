@@ -23,6 +23,22 @@ final class RepoViewModel: ObservableObject {
         showAlert = true
     }
 
+    /// 绑定页专用：验证配置，返回错误文案（nil = 成功）。不触发全局弹窗，便于内联显示。
+    func verifyBindError(for cfg: RepoConfig) async -> String? {
+        guard cfg.isValid else { return "Token 和源都要填。" }
+        do {
+            let s = GitHubService(config: cfg)
+            _ = try await s.verify()
+            return nil
+        } catch RepoError.http(404, _) {
+            return "找不到仓库「\(cfg.repoFullName)」。\n请核对：① 解析出的仓库名对不对；② Token 属于哪个账号；③ 该账号下是否真有这个仓库（仓库名别写错）。"
+        } catch RepoError.http(401, _) {
+            return "Token 无效，或没勾 repo 权限。请重新生成 classic token，只勾 repo，再粘一次。"
+        } catch {
+            return "连接失败：\(error.localizedDescription)"
+        }
+    }
+
     /// 从 URL 下载（供上传页拉取 deb 用）
     func download(url: URL) async throws -> Data {
         try await service.download(url: url)
@@ -142,6 +158,48 @@ final class RepoViewModel: ObservableObject {
             return true
         } catch {
             alert("上传失败：\(error.localizedDescription)")
+            return false
+        }
+    }
+
+    // MARK: 编辑插件元数据（不换 deb 文件）
+    func update(entry original: PackageEntry, to draft: PackageEntry) async -> Bool {
+        guard config.isValid else {
+            alert("尚未绑定源")
+            return false
+        }
+        isBusy = true; status = "正在保存…"
+        defer { isBusy = false; status = "就绪" }
+        do {
+            var entries = packages
+            if let idx = entries.firstIndex(where: { $0.package == original.package }) {
+                entries[idx] = draft
+            } else {
+                entries.append(draft)
+            }
+            entries.sort { $0.package < $1.package }
+
+            let packagesText = entries.map { $0.serialized() }.joined(separator: "\n")
+            let packagesData = Data(packagesText.utf8)
+            let gzData = RepoHash.gzip(packagesData)
+            let release = Self.makeRelease(packages: packagesData, gz: gzData, config: config)
+            let depiction = Self.makeDepiction(entry: draft, config: config)
+
+            var changes: [FileChange] = [
+                FileChange(path: "Packages", data: packagesData, sha: nil),
+                FileChange(path: "Packages.gz", data: gzData, sha: nil),
+                FileChange(path: "Release", data: release, sha: nil),
+                FileChange(path: "depictions/\(draft.package).json", data: depiction, sha: nil),
+            ]
+            if let names = try? await service.listDir(""), names.contains("Packages.bz2") {
+                changes.append(FileChange(path: "Packages.bz2", data: nil, sha: nil))
+            }
+            try await service.commit(changes: changes, message: "编辑 \(draft.package)（RepoManager）")
+            packages = entries
+            status = "已保存 \(draft.name.isEmpty ? draft.package : draft.name)"
+            return true
+        } catch {
+            alert("保存失败：\(error.localizedDescription)")
             return false
         }
     }

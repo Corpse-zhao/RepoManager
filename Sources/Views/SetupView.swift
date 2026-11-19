@@ -5,8 +5,10 @@ struct SetupView: View {
     @State private var token = ""
     @State private var repoInput = ""
     @State private var testing = false
+    @State private var bindError: String?
+    @State private var bindOK = false
 
-    /// 解析「owner/repo」或完整 GitHub URL → (owner, repo)
+    /// 解析「owner/repo」/ 完整 GitHub URL / Pages 地址 → (owner, repo)
     private func parseRepo(_ raw: String) -> (String, String)? {
         var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         s = s.replacingOccurrences(of: "https://", with: "")
@@ -40,40 +42,65 @@ struct SetupView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("1 · 粘贴 Token"), footer: Text(
-                    "GitHub → Settings → Developer settings → Personal access tokens → Generate new token (classic)，勾选 repo 权限，复制 ghp_ 开头的串粘到这里。只存本机。"
-                )) {
-                    SecureField("ghp_xxxxxxxxxxxx", text: $token)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("这个 App 用来在手机上管理你的越狱源：看插件、上传 deb、删插件。")
+                            .font(.subheadline)
+                        Text("绑定只需两样东西，填好后点最下面的「一键绑定」。")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
                 }
 
-                Section(header: Text("2 · 填源仓库"), footer: Text(
-                    "填「用户名/仓库名」，或直接粘贴完整链接，如 https://github.com/Corpse-zhao/banli"
-                )) {
-                    TextField("用户名/仓库名，或粘贴完整链接", text: $repoInput)
+                Section(header: Text("1 · GitHub Token（必填）")) {
+                    SecureField("粘贴 ghp_ 开头的 token", text: $token)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                    Text("填什么：GitHub 私人访问令牌，用来读写你的源仓库。\n去哪拿：GitHub 网页 → 头像 → Settings → Developer settings → Personal access tokens → Generate new token (classic) → 只勾 repo → 复制 ghp_ 开头那串。\n只存手机本机，不会上传到别处。")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+
+                Section(header: Text("2 · 源仓库（必填）")) {
+                    TextField("例如 Corpse-zhao/banli", text: $repoInput)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Text("填什么：存放越狱源的 GitHub 仓库（里面有 Packages、debs 文件夹的那个）。\n三种写法任选一种粘贴：")
+                        .font(.caption).foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("• 用户名/仓库名：Corpse-zhao/banli")
+                        Text("• 完整链接：https://github.com/Corpse-zhao/banli")
+                        Text("• 源地址：https://corpse-zhao.github.io/banli/")
+                    }
+                    .font(.caption).foregroundColor(.secondary)
                     if let p = parsed {
-                        Label("将绑定 \(p.0)/\(p.1)", systemImage: "checkmark.circle.fill")
-                            .font(.caption)
-                            .foregroundColor(.green)
+                        Label("识别为：\(p.0)/\(p.1)", systemImage: "checkmark.circle.fill")
+                            .font(.caption).foregroundColor(.green)
                     } else {
-                        Label("格式：用户名/仓库名", systemImage: "exclamationmark.triangle")
-                            .font(.caption)
-                            .foregroundColor(.orange)
+                        Label("还没识别到仓库，按上面三种格式之一填", systemImage: "exclamationmark.triangle")
+                            .font(.caption).foregroundColor(.orange)
                     }
                 }
 
                 Section {
                     Button {
+                        bindError = nil
+                        bindOK = false
                         testing = true
                         Task {
-                            let p = parseRepo(repoInput) ?? ("", "")
-                            vm.config = RepoConfig(token: token, owner: p.0, repo: p.1, branch: "main")
-                            let ok = await vm.testConnection()
+                            guard let p = parseRepo(repoInput) else {
+                                bindError = "没识别到仓库，请按上面三种格式之一填写「源仓库」。"
+                                testing = false
+                                return
+                            }
+                            let cfg = RepoConfig(token: token, owner: p.0, repo: p.1, branch: "main")
+                            let err = await vm.verifyBindError(for: cfg)
+                            if let e = err {
+                                bindError = e
+                                vm.config = RepoConfig()
+                            } else {
+                                vm.config = cfg
+                                bindOK = true
+                            }
                             testing = false
-                            if !ok { vm.config = RepoConfig() }
                         }
                     } label: {
                         HStack {
@@ -83,6 +110,25 @@ struct SetupView: View {
                         .frame(maxWidth: .infinity)
                     }
                     .disabled(!canBind)
+
+                    // 结果内联显示，不再用弹窗盖住输入框
+                    if let e = bindError {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("绑定失败", systemImage: "xmark.circle.fill")
+                                .foregroundColor(.red).font(.subheadline.bold())
+                            Text(e).font(.caption)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    if bindOK {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("绑定成功", systemImage: "checkmark.circle.fill")
+                                .foregroundColor(.green).font(.subheadline.bold())
+                            Text("已连接 \(vm.config.repoFullName)，切到「插件」页就能管理你的源了。")
+                                .font(.caption)
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
             }
             .navigationTitle("源管理")

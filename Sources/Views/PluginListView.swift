@@ -93,7 +93,9 @@ struct PluginRow: View {
 }
 
 struct PluginDetailView: View {
+    @EnvironmentObject var vm: RepoViewModel
     let entry: PackageEntry
+    @State private var showEdit = false
 
     var body: some View {
         List {
@@ -105,7 +107,7 @@ struct PluginDetailView: View {
                 label("大小", entry.size.isEmpty ? "—" : "\(entry.size) 字节")
             }
             Section("功能描述") {
-                Text(entry.desc).font(.body)
+                Text(entry.desc.isEmpty ? "无描述" : entry.desc).font(.body)
             }
             Section("依赖") {
                 Text(entry.depends.isEmpty ? "无" : entry.depends)
@@ -114,6 +116,15 @@ struct PluginDetailView: View {
         }
         .navigationTitle(entry.name.isEmpty ? "插件详情" : entry.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("编辑") { showEdit = true }
+            }
+        }
+        .sheet(isPresented: $showEdit) {
+            PluginEditView(entry: entry)
+                .environmentObject(vm)
+        }
     }
 
     private func label(_ k: String, _ v: String) -> some View {
@@ -123,6 +134,83 @@ struct PluginDetailView: View {
             Text(v.isEmpty ? "—" : v)
                 .textSelection(.enabled)
                 .multilineTextAlignment(.trailing)
+        }
+    }
+}
+
+// MARK: - 编辑插件元数据
+struct PluginEditView: View {
+    @EnvironmentObject var vm: RepoViewModel
+    @Environment(\.dismiss) private var dismiss
+    let entry: PackageEntry
+
+    @State private var name: String
+    @State private var version: String
+    @State private var desc: String
+    @State private var depends: String
+    @State private var section: String
+    @State private var maintainer: String
+    @State private var saving = false
+
+    init(entry: PackageEntry) {
+        self.entry = entry
+        _name = State(initialValue: entry.name)
+        _version = State(initialValue: entry.version)
+        _desc = State(initialValue: entry.desc)
+        _depends = State(initialValue: entry.depends)
+        _section = State(initialValue: entry.section.isEmpty ? "Tweaks" : entry.section)
+        _maintainer = State(initialValue: entry.maintainer)
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("基本信息")) {
+                    TextField("显示名称", text: $name)
+                    TextField("版本号，如 1.2.3", text: $version)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    TextField("分类，如 Tweaks / Applications", text: $section)
+                }
+                Section(header: Text("功能描述"), footer: Text("Sileo 详情页里显示的介绍文字。")) {
+                    TextEditor(text: $desc).frame(minHeight: 100)
+                }
+                Section(header: Text("安装信息")) {
+                    TextField("依赖，如 mobilesubstrate（留空则无）", text: $depends)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    TextField("维护者", text: $maintainer)
+                }
+                Section(header: Text("不可修改"), footer: Text("包名、架构、deb 文件不会改动；如需更换 deb，请用「上传」页面传同名包覆盖。")) {
+                    Label("包名：\(entry.package)", systemImage: "lock.fill").font(.caption)
+                    Label("架构：\(entry.arch)", systemImage: "lock.fill").font(.caption)
+                }
+            }
+            .navigationTitle("编辑插件")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        saving = true
+                        Task {
+                            var draft = entry
+                            draft.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                            draft.version = version.trimmingCharacters(in: .whitespacesAndNewlines)
+                            draft.desc = desc.trimmingCharacters(in: .whitespacesAndNewlines)
+                            draft.depends = depends.trimmingCharacters(in: .whitespacesAndNewlines)
+                            draft.section = section.trimmingCharacters(in: .whitespacesAndNewlines)
+                            draft.maintainer = maintainer.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let ok = await vm.update(entry: entry, to: draft)
+                            saving = false
+                            if ok { dismiss() }
+                        }
+                    } label: {
+                        if saving { ProgressView() } else { Text("保存") }
+                    }
+                    .disabled(saving || version.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
         }
     }
 }
