@@ -58,7 +58,24 @@ struct UploadView: View {
                             }
                             .frame(maxWidth: .infinity)
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(AppTheme.accent)
                         .disabled(vm.isBusy || draft.package.isEmpty)
+
+                        // 取消选择：选错文件/版本时清掉重来
+                        Button {
+                            reset()
+                            vm.status = "已取消，可重新选择 deb"
+                        } label: {
+                            HStack {
+                                Image(systemName: "xmark.circle")
+                                Text("取消选择")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(vm.isBusy)
                     }
                 } else {
                     Section {

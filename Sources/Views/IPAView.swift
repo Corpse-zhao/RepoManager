@@ -28,9 +28,29 @@ struct IPAView: View {
                     }
 
                     if !pendingName.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("待上传：\(pendingName)").font(.subheadline.bold())
-                            Text(pendingSize).font(.caption).foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("待上传：\(pendingName)")
+                                        .font(.subheadline.bold())
+                                    Text(pendingSize).font(.caption).foregroundColor(.secondary)
+                                }
+                                Spacer(minLength: 8)
+                                // 取消选择：清掉当前文件，重新选
+                                Button {
+                                    clearPending()
+                                    vm.status = "已取消，可重新选择 IPA"
+                                } label: {
+                                    Text("取消")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(Color.secondary.opacity(0.12), in: Capsule())
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(vm.isBusy)
+                            }
                             LabelledField(label: "备注", text: $pendingNote, placeholder: "选填，如：备用签名版")
                             Button {
                                 guard let data = pendingData else {
@@ -46,7 +66,10 @@ struct IPAView: View {
                                     if vm.isBusy { ProgressView() }
                                     Text("上传到仓库备份")
                                 }
+                                .frame(maxWidth: .infinity)
                             }
+                            .buttonStyle(.borderedProminent)
+                            .tint(AppTheme.accent)
                             .disabled(vm.isBusy)
 
                             Text("上传后可在下方「已备份」列表里看到，需要时装到巨魔或下载回来。")
