@@ -115,6 +115,18 @@ struct PackageEntry: Identifiable, Equatable {
     }
 }
 
+// MARK: - 从「分享 / 其他应用打开」导入的文件
+/// 外部 App（微信、文件、Filza 等）通过「用其他应用打开」传给本 App 的文件。
+/// 数据已在接收时立刻读进内存并沙盒化，避免系统回收临时文件后读不到。
+struct IncomingFile: Identifiable, Equatable {
+    let id = UUID()
+    var name: String
+    var ext: String
+    var data: Data
+    /// 让同一批次的多个文件也能触发（改变 id）
+    static func == (lhs: IncomingFile, rhs: IncomingFile) -> Bool { lhs.id == rhs.id }
+}
+
 // MARK: - 上传表单
 struct UploadDraft {
     var package: String = ""

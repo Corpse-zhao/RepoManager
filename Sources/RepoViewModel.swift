@@ -29,6 +29,46 @@ final class RepoViewModel: ObservableObject {
         h?(url)
     }
 
+    // MARK: 从「其他应用打开 / 分享」导入
+    /// 外部 App 传进来的文件（微信里点「用其他应用打开」选本 App 时会走这里）。
+    /// 各页面监听它，自动跳到对应 tab 并预填。
+    @Published var pendingIncoming: IncomingFile?
+    /// 当前应切到哪个 tab：0 插件 / 1 上传 / 2 IPA / 3 设置
+    @Published var requestedTab: Int = 0
+
+    /// 接收外部文件 URL。立刻读取并复制进内存（外部临时文件随时会被系统回收）。
+    /// - Returns: 是否成功接收（扩展名合法且读到数据）
+    @discardableResult
+    func handleIncomingURL(_ url: URL) -> Bool {
+        guard config.isValid else {
+            alert("已收到文件，但还没绑定源。请先在绑定页填入 Token 和仓库，再重新用其他应用打开这个文件。")
+            return false
+        }
+        let ext = (url.lastPathComponent as NSString).pathExtension.lowercased()
+        guard ext == "deb" || ext == "ipa" else {
+            alert("只支持 .deb（插件）和 .ipa（备份）文件，收到的是 .\(ext.isEmpty ? "未知" : ext)")
+            return false
+        }
+        // 外部传来的 URL 带安全作用域，先取访问权限
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try Data(contentsOf: url)
+            guard !data.isEmpty else {
+                alert("文件是空的，无法导入")
+                return false
+            }
+            let incoming = IncomingFile(name: url.lastPathComponent, ext: ext, data: data)
+            pendingIncoming = incoming
+            requestedTab = (ext == "deb") ? 1 : 2
+            status = "已从外部导入 \(url.lastPathComponent)"
+            return true
+        } catch {
+            alert("读取外部文件失败：\(error.localizedDescription)")
+            return false
+        }
+    }
+
     private var service: GitHubService { GitHubService(config: config) }
 
     init() {

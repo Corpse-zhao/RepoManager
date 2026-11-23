@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 struct IPAView: View {
     @EnvironmentObject var vm: RepoViewModel
-    @State private var pendingURL: URL?
+    @State private var pendingData: Data?
     @State private var pendingName = ""
     @State private var pendingSize = ""
     @State private var pendingNote = ""
@@ -33,16 +33,13 @@ struct IPAView: View {
                             Text(pendingSize).font(.caption).foregroundColor(.secondary)
                             LabelledField(label: "备注", text: $pendingNote, placeholder: "选填，如：备用签名版")
                             Button {
-                                guard let url = pendingURL else { return }
-                                let accessing = url.startAccessingSecurityScopedResource()
-                                defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-                                if let data = try? Data(contentsOf: url) {
-                                    Task {
-                                        let ok = await vm.uploadIPA(fileName: pendingName, data: data, note: pendingNote)
-                                        if ok { clearPending() }
-                                    }
-                                } else {
-                                    vm.alert("读取 IPA 失败")
+                                guard let data = pendingData else {
+                                    vm.alert("IPA 数据已失效，请重新选择文件")
+                                    return
+                                }
+                                Task {
+                                    let ok = await vm.uploadIPA(fileName: pendingName, data: data, note: pendingNote)
+                                    if ok { clearPending() }
                                 }
                             } label: {
                                 HStack {
@@ -181,7 +178,16 @@ struct IPAView: View {
                     }
                 }
             }
+            // 从微信「用其他应用打开」导入的 IPA：自动预填（onChange + onAppear 双保险）
+            .onChange(of: vm.pendingIncoming) { _ in applyIncomingIfNeeded() }
+            .onAppear { applyIncomingIfNeeded() }
         }
+    }
+
+    private func applyIncomingIfNeeded() {
+        guard let incoming = vm.pendingIncoming, incoming.ext == "ipa" else { return }
+        applyIncoming(incoming)
+        vm.pendingIncoming = nil
     }
 
     private func handlePickedURL(_ url: URL) {
@@ -191,9 +197,11 @@ struct IPAView: View {
             return
         }
         do {
-            // asCopy 模式：URL 已是沙盒内副本，直接读即可
+            // 立刻读进内存缓存，上传时不再二次读临时文件（避免 IPA 读到一半失效）
+            let accessing = url.startAccessingSecurityScopedResource()
+            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
             let data = try Data(contentsOf: url)
-            pendingURL = url
+            pendingData = data
             pendingName = url.lastPathComponent
             pendingSize = "大小：\(formatSize(data.count))"
             vm.status = "已选择 \(url.lastPathComponent)"
@@ -202,8 +210,16 @@ struct IPAView: View {
         }
     }
 
+    /// 用已读入内存的文件预填（外部 App 导入用）
+    private func applyIncoming(_ incoming: IncomingFile) {
+        pendingData = incoming.data
+        pendingName = incoming.name
+        pendingSize = "大小：\(formatSize(incoming.data.count))"
+        vm.status = "已导入 \(incoming.name)，填好备注后点上传"
+    }
+
     private func clearPending() {
-        pendingURL = nil
+        pendingData = nil
         pendingName = ""
         pendingSize = ""
         pendingNote = ""

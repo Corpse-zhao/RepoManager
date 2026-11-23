@@ -107,21 +107,21 @@ jobs:
           cp -R "$APP" "$STAGE/Applications/RepoManager.app"
           cp packaging/control "$STAGE/DEBIAN/control"
           # roothide: Architecture 必须是 iphoneos-arm64e，路径相对（无 /var/jb）
-          dpkg-deb -Zxz --build "$STAGE" RepoManager_1.1.5_iphoneos-arm64e.deb
-          ls -lh RepoManager_1.1.5_iphoneos-arm64e.deb
+          dpkg-deb -Zxz --build "$STAGE" RepoManager_1.1.6_iphoneos-arm64e.deb
+          ls -lh RepoManager_1.1.6_iphoneos-arm64e.deb
           echo "DEB BUILT"
 
       - name: Verify deb
         run: |
-          dpkg-deb -I RepoManager_1.1.5_iphoneos-arm64e.deb
+          dpkg-deb -I RepoManager_1.1.6_iphoneos-arm64e.deb
           echo "--- contents ---"
-          dpkg-deb -c RepoManager_1.1.5_iphoneos-arm64e.deb | head -20
+          dpkg-deb -c RepoManager_1.1.6_iphoneos-arm64e.deb | head -20
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: RepoManager-deb
-          path: RepoManager_1.1.5_iphoneos-arm64e.deb
+          path: RepoManager_1.1.6_iphoneos-arm64e.deb
           if-no-files-found: error
 
       - name: Package IPA (for TrollStore / backup)
@@ -132,16 +132,16 @@ jobs:
           mkdir -p "$IPA_STAGE/Payload"
           cp -R "$APP" "$IPA_STAGE/Payload/RepoManager.app"
           cd "$IPA_STAGE"
-          zip -qry ../RepoManager_1.1.5.ipa Payload
+          zip -qry ../RepoManager_1.1.6.ipa Payload
           cd ..
-          ls -lh RepoManager_1.1.5.ipa
+          ls -lh RepoManager_1.1.6.ipa
           echo "--- ipa contents ---"
-          unzip -l RepoManager_1.1.5.ipa | head -20
+          unzip -l RepoManager_1.1.6.ipa | head -20
           echo "IPA BUILT"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: RepoManager-ipa
-          path: RepoManager_1.1.5.ipa
+          path: RepoManager_1.1.6.ipa
           if-no-files-found: error

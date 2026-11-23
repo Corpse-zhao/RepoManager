@@ -37,5 +37,9 @@ struct RootView: View {
             )
         }
         .tint(AppTheme.accent)
+        // 微信/文件等 App 通过「用其他应用打开」把 deb/ipa 传进来
+        .onOpenURL { url in
+            _ = vm.handleIncomingURL(url)
+        }
     }
 }

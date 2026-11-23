@@ -7,8 +7,8 @@ options:
 settings:
   base:
     PRODUCT_BUNDLE_IDENTIFIER: com.corpsezhao.repomanager
-    MARKETING_VERSION: 1.1.5
-    CURRENT_PROJECT_VERSION: 16
+    MARKETING_VERSION: 1.1.6
+    CURRENT_PROJECT_VERSION: 17
     SWIFT_VERSION: 5.9
     TARGETED_DEVICE_FAMILY: "1,2"
     ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -41,3 +41,29 @@ targets:
         UIRequiredDeviceCapabilities: [arm64]
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: 用于扫描二维码导入仓库配置
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: "Debian Package"
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Default
+            LSItemContentTypes:
+              - com.corpsezhao.repomanager.deb
+          - CFBundleTypeName: "iOS App Package"
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Default
+            LSItemContentTypes:
+              - com.corpsezhao.repomanager.ipa
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.corpsezhao.repomanager.deb
+            UTTypeDescription: Debian Package
+            UTTypeConformsTo:
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - deb
+          - UTTypeIdentifier: com.corpsezhao.repomanager.ipa
+            UTTypeDescription: iOS App Package
+            UTTypeConformsTo:
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - ipa

@@ -79,7 +79,21 @@ struct UploadView: View {
             .alert(vm.alertMessage ?? "", isPresented: $vm.showAlert) {
                 Button("好", role: .cancel) {}
             }
+            // 从微信「用其他应用打开」导入的 deb：自动预填表单
+            .onChange(of: vm.pendingIncoming) { _ in applyIncomingIfNeeded() }
+            .onAppear { applyIncomingIfNeeded() }
         }
+    }
+
+    /// 消费外部导入的 deb（onChange + onAppear 双保险，避免懒加载 tab 漏掉事件）
+    private func applyIncomingIfNeeded() {
+        guard let incoming = vm.pendingIncoming, incoming.ext == "deb" else { return }
+        var d = UploadDraft()
+        d.debData = incoming.data
+        d.infer(from: incoming.name)
+        draft = d
+        vm.status = "已导入 \(incoming.name)，确认信息后点上传"
+        vm.pendingIncoming = nil
     }
 
     private func handlePickedURL(_ url: URL) {
