@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct RepoManagerApp: App {
     @StateObject private var vm = RepoViewModel()
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
         WindowGroup {
@@ -37,9 +38,15 @@ struct RootView: View {
             )
         }
         .tint(AppTheme.accent)
-        // 微信/文件等 App 通过「用其他应用打开」把 deb/ipa 传进来
+        // 通道 1：SwiftUI 标准 URL 接收
         .onOpenURL { url in
             _ = vm.handleIncomingURL(url)
+        }
+        // 通道 2：AppDelegate 转发（第三方 App 唤醒 / 冷启动更可靠）
+        .onReceive(NotificationCenter.default.publisher(for: .incomingFileURL)) { note in
+            if let url = note.object as? URL {
+                _ = vm.handleIncomingURL(url)
+            }
         }
     }
 }

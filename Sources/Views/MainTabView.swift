@@ -26,6 +26,23 @@ struct MainTabView: View {
         .onChange(of: vm.requestedTab) { newTab in
             selection = newTab
         }
+        .overlay(alignment: .top) {
+            if let banner = vm.incomingBanner {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.down.doc.fill")
+                    Text(banner)
+                        .font(.caption.weight(.medium))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(AppTheme.accent, in: Capsule())
+                .foregroundColor(.white)
+                .padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .animation(.spring(), value: vm.incomingBanner)
+            }
+        }
         .overlay(alignment: .bottom) {
             if vm.isBusy {
                 HStack(spacing: 8) {

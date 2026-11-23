@@ -35,35 +35,72 @@ final class RepoViewModel: ObservableObject {
     @Published var pendingIncoming: IncomingFile?
     /// 当前应切到哪个 tab：0 插件 / 1 上传 / 2 IPA / 3 设置
     @Published var requestedTab: Int = 0
+    /// 顶部可见横幅：明确告诉用户文件有没有收到（比弹窗温和，且能直观排查）
+    @Published var incomingBanner: String?
+
+    // 双通道去重：onOpenURL 和 AppDelegate 可能同时上报同一个 URL
+    private var lastIncomingURL: String?
+    private var lastIncomingTime: Date?
 
     /// 接收外部文件 URL。立刻读取并复制进内存（外部临时文件随时会被系统回收）。
     /// - Returns: 是否成功接收（扩展名合法且读到数据）
     @discardableResult
     func handleIncomingURL(_ url: URL) -> Bool {
+        // 1 秒内同一 URL 只处理一次，避免两条通道重复导入
+        let key = url.absoluteString
+        let now = Date()
+        if key == lastIncomingURL, let t = lastIncomingTime, now.timeIntervalSince(t) < 1.0 {
+            return false
+        }
+        lastIncomingURL = key
+        lastIncomingTime = now
+
+        // 微信/QQ 传过来的临时文件名常被改写，扩展名判断放宽到整个路径
+        let full = url.absoluteString.lowercased()
+        let base = url.lastPathComponent.lowercased()
+        var ext: String?
+        if base.hasSuffix(".deb") || full.contains(".deb") { ext = "deb" }
+        else if base.hasSuffix(".ipa") || full.contains(".ipa") { ext = "ipa" }
+
+        guard let kind = ext else {
+            incomingBanner = "收到文件但无法识别类型：\(url.lastPathComponent)"
+            alert("只支持 .deb（插件）和 .ipa（备份）文件。收到的是「\(url.lastPathComponent)」，如果这是 deb/ipa，请确认文件名保留了扩展名。")
+            return false
+        }
+
         guard config.isValid else {
+            incomingBanner = "已收到 \(kind.uppercased())，但还没绑定源"
             alert("已收到文件，但还没绑定源。请先在绑定页填入 Token 和仓库，再重新用其他应用打开这个文件。")
             return false
         }
-        let ext = (url.lastPathComponent as NSString).pathExtension.lowercased()
-        guard ext == "deb" || ext == "ipa" else {
-            alert("只支持 .deb（插件）和 .ipa（备份）文件，收到的是 .\(ext.isEmpty ? "未知" : ext)")
-            return false
-        }
-        // 外部传来的 URL 带安全作用域，先取访问权限
+
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         do {
             let data = try Data(contentsOf: url)
             guard !data.isEmpty else {
+                incomingBanner = "文件是空的，导入失败"
                 alert("文件是空的，无法导入")
                 return false
             }
-            let incoming = IncomingFile(name: url.lastPathComponent, ext: ext, data: data)
+            // 尽量还原成带正确扩展名的文件名（微信临时名常丢扩展名）
+            var name = url.lastPathComponent
+            if !name.lowercased().hasSuffix(".\(kind)") {
+                name = (name as NSString).deletingPathExtension + ".\(kind)"
+            }
+            let incoming = IncomingFile(name: name, ext: kind, data: data)
             pendingIncoming = incoming
-            requestedTab = (ext == "deb") ? 1 : 2
-            status = "已从外部导入 \(url.lastPathComponent)"
+            requestedTab = (kind == "deb") ? 1 : 2
+            incomingBanner = "已收到 \(name) · 正在导入"
+            status = "已从外部导入 \(name)"
+            // 横幅 4 秒后自动消失
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 4_000_000_000)
+                if self?.incomingBanner?.contains(name) == true { self?.incomingBanner = nil }
+            }
             return true
         } catch {
+            incomingBanner = "读取文件失败"
             alert("读取外部文件失败：\(error.localizedDescription)")
             return false
         }
