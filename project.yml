@@ -41,6 +41,7 @@ targets:
         UIRequiredDeviceCapabilities: [arm64]
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: 用于扫描二维码导入仓库配置
+        LSSupportsOpeningDocumentsInPlace: true
         CFBundleDocumentTypes:
           - CFBundleTypeName: "Debian Package"
             CFBundleTypeRole: Editor
