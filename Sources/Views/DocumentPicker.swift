@@ -20,6 +20,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
         c.onPick = onPick
         c.onError = onError
         c.onFinish = { isPresented = false }
+        c.isPresented = isPresented
         if isPresented {
             host.tryPresent()
         } else {
@@ -33,6 +34,8 @@ struct DocumentPicker: UIViewControllerRepresentable {
         var onPick: ((URL) -> Void)?
         var onError: ((String) -> Void)?
         var onFinish: (() -> Void)?
+        /// 当前是否真的需要弹选择器。viewDidAppear 靠它判断，避免进 App / 切 tab 时误弹。
+        var isPresented = false
 
         func documentPicker(_ controller: UIDocumentPickerViewController,
                             didPickDocumentsAt urls: [URL]) {
@@ -57,6 +60,8 @@ final class PickerHostController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        // 只有用户主动点了「选择文件」才弹；否则 App 启动 / 切 tab / 从后台回来都会误弹
+        guard coordinator?.isPresented == true else { return }
         tryPresent()
     }
 
